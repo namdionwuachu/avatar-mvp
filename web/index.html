@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avatar MVP - AI Video Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        input[type="file"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input[type="file"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+
+        .video-container {
+            margin-top: 2rem;
+            display: none;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        video {
+            width: 100%;
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .help-text {
+            font-size: 0.875rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .generate-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-left: none;
+        }
+
+        .generate-section .section-title {
+            color: white;
+        }
+
+        .generate-section button {
+            background: white;
+            color: #667eea;
+        }
+
+        .generate-section button:hover {
+            background: #f8f9fa;
+        }
+
+        .generate-section .help-text {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #eee;
+            color: #999;
+            font-size: 0.875rem;
+        }
+
+        .voice-info {
+            background: #e8f4f8;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Avatar MVP</h1>
+        <p class="subtitle">AI-Powered Talking Avatar Generator</p>
+
+        <!-- Step 1: Upload Avatar -->
+        <div class="section">
+            <div class="section-title">
+                <span class="step-number">1</span>
+                Upload Your Avatar Image
+            </div>
+            <label for="avatarFile">Choose a portrait photo (PNG or JPG)</label>
+            <input type="file" id="avatarFile" accept="image/png,image/jpeg,image/jpg">
+            <p class="help-text">📸 Best results: Clear face, looking at camera, good lighting</p>
+            <button id="uploadAvatarBtn">Upload Avatar Image</button>
+            <div id="avatarStatus" class="status"></div>
+        </div>
+
+        <!-- Step 2: Script -->
+        <div class="section">
+            <div class="section-title">
+                <span class="step-number">2</span>
+                Write Your Script
+            </div>
+            <label for="script">What should your avatar say?</label>
+            <textarea 
+                id="script" 
+                placeholder="Example: Hello! Welcome to our platform. We're excited to show you how AI can transform your content creation."
+                maxlength="500"
+            ></textarea>
+            <p class="help-text">💬 Max 500 characters (~18 second video)</p>
+        </div>
+
+        <!-- Step 3: Gesture Style -->
+        <div class="section">
+            <div class="section-title">
+                <span class="step-number">3</span>
+                Choose Gesture Style
+            </div>
+            <label for="gestureMode">How animated should the gestures be?</label>
+            <select id="gestureMode">
+                <option value="subtle">Subtle - Natural, minimal hand movement</option>
+                <option value="expressive">Expressive - Dynamic, engaging gestures</option>
+            </select>
+            <p class="help-text">✋ Subtle for professional settings, Expressive for engaging presentations</p>
+            
+            <div class="voice-info" style="margin-top: 1rem;">
+                🎙️ <strong>Voice:</strong> Amazon Polly Neural (Joanna) - Professional female voice
+            </div>
+        </div>
+
+        <!-- Step 4: Generate -->
+        <div class="section generate-section">
+            <div class="section-title">
+                <span class="step-number">4</span>
+                Generate Your Video
+            </div>
+            <p class="help-text">Video generation takes 4-6 minutes. Don't close this page!</p>
+            <button id="generateBtn">🚀 Generate Avatar Video</button>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <div id="jobStatus" class="status"></div>
+        </div>
+
+        <!-- Video Player -->
+        <div class="video-container" id="videoContainer">
+            <video id="videoPlayer" controls></video>
+        </div>
+
+        <div class="footer">
+            Built with AWS Bedrock Nova Reel + Amazon Polly<br>
+            <small>Avatar MVP v1.0</small>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================================
+        // CONFIGURATION - UPDATE THIS WITH YOUR API URL FROM CDK DEPLOY
+        // ===================================================================
+        const API_BASE = "YOUR_API_URL_HERE"; 
+        // Example: "https://abc123def.execute-api.us-east-1.amazonaws.com/prod"
+        
+        // ===================================================================
+        // STATE
+        // ===================================================================
+        const USER_ID = "user-" + Math.random().toString(36).substring(2, 9);
+        let avatarKey = null;
+        let pollInterval = null;
+
+        // ===================================================================
+        // HELPERS
+        // ===================================================================
+        function showStatus(id, message, type) {
+            const el = document.getElementById(id);
+            el.textContent = message;
+            el.className = `status ${type}`;
+        }
+
+        function setLoading(btnId, loading, text) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = loading;
+            btn.textContent = loading ? "⏳ " + text : text;
+        }
+
+        // ===================================================================
+        // UPLOAD AVATAR
+        // ===================================================================
+        document.getElementById("uploadAvatarBtn").onclick = async () => {
+            const file = document.getElementById("avatarFile").files[0];
+            
+            if (!file) {
+                showStatus("avatarStatus", "❌ Please select an image first", "error");
+                return;
+            }
+
+            if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+                showStatus("avatarStatus", "❌ Please upload a PNG or JPG image", "error");
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showStatus("avatarStatus", "❌ Image must be under 10MB", "error");
+                return;
+            }
+
+            try {
+                setLoading("uploadAvatarBtn", true, "Uploading...");
+                showStatus("avatarStatus", "📤 Getting upload URL...", "info");
+
+                // Get presigned URL
+                const urlRes = await fetch(`${API_BASE}/upload-url`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: USER_ID,
+                        fileName: file.name,
+                        fileType: "avatar"
+                    })
+                });
+
+                if (!urlRes.ok) throw new Error("Failed to get upload URL");
+                const { uploadUrl, objectKey } = await urlRes.json();
+
+                // Upload to S3
+                showStatus("avatarStatus", "📤 Uploading image...", "info");
+                const uploadRes = await fetch(uploadUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": file.type },
+                    body: file
+                });
+
+                if (!uploadRes.ok) throw new Error("Upload failed");
+
+                avatarKey = objectKey;
+                showStatus("avatarStatus", `✅ Avatar uploaded: ${file.name}`, "success");
+
+            } catch (err) {
+                console.error(err);
+                showStatus("avatarStatus", `❌ Upload failed: ${err.message}`, "error");
+            } finally {
+                setLoading("uploadAvatarBtn", false, "Upload Avatar Image");
+            }
+        };
+
+        // ===================================================================
+        // GENERATE VIDEO
+        // ===================================================================
+        document.getElementById("generateBtn").onclick = async () => {
+            // Validate
+            if (!avatarKey) {
+                showStatus("jobStatus", "❌ Please upload an avatar image first", "error");
+                return;
+            }
+
+            const script = document.getElementById("script").value.trim();
+            if (!script) {
+                showStatus("jobStatus", "❌ Please enter a script", "error");
+                return;
+            }
+
+            if (script.length > 500) {
+                showStatus("jobStatus", "❌ Script too long (max 500 characters)", "error");
+                return;
+            }
+
+            const gestureMode = document.getElementById("gestureMode").value;
+
+            try {
+                setLoading("generateBtn", true, "Creating job...");
+                showStatus("jobStatus", "🎬 Starting video generation...", "info");
+                document.getElementById("videoContainer").style.display = "none";
+
+                // Create job
+                const res = await fetch(`${API_BASE}/jobs`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId: USER_ID,
+                        script: script,
+                        avatarKey: avatarKey,
+                        durationSeconds: 18,
+                        voiceMode: "polly",      // Always Polly for now
+                        gestureMode: gestureMode
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "Job creation failed");
+                }
+
+                const { jobId } = await res.json();
+                showStatus("jobStatus", `✅ Job started!\n⏳ Generating video (4-6 min)...`, "info");
+                
+                // Show progress bar
+                document.getElementById("progressBar").style.display = "block";
+                
+                // Start polling
+                pollForCompletion(jobId);
+
+            } catch (err) {
+                console.error(err);
+                showStatus("jobStatus", `❌ Error: ${err.message}`, "error");
+                setLoading("generateBtn", false, "🚀 Generate Avatar Video");
+            }
+        };
+
+        // ===================================================================
+        // POLL FOR COMPLETION
+        // ===================================================================
+        function pollForCompletion(jobId) {
+            let attempts = 0;
+            const maxAttempts = 80; // 80 × 5s = ~6.5 minutes
+
+            pollInterval = setInterval(async () => {
+                attempts++;
+
+                try {
+                    const res = await fetch(`${API_BASE}/jobs/${jobId}`);
+                    if (!res.ok) throw new Error("Status check failed");
+
+                    const data = await res.json();
+                    
+                    // Update progress bar
+                    const progress = Math.min((attempts / maxAttempts) * 95, 95);
+                    document.getElementById("progressFill").style.width = progress + "%";
+
+                    if (data.status === "COMPLETED") {
+                        clearInterval(pollInterval);
+                        document.getElementById("progressFill").style.width = "100%";
+                        
+                        showStatus("jobStatus", "✅ Video ready!", "success");
+                        setLoading("generateBtn", false, "🚀 Generate Avatar Video");
+                        
+                        setTimeout(() => {
+                            document.getElementById("progressBar").style.display = "none";
+                        }, 1000);
+
+                        // Show video
+                        const videoContainer = document.getElementById("videoContainer");
+                        const videoPlayer = document.getElementById("videoPlayer");
+                        videoPlayer.src = data.videoUrl;
+                        videoContainer.style.display = "block";
+                        videoContainer.scrollIntoView({ behavior: "smooth" });
+                        videoPlayer.play();
+
+                    } else if (data.status === "FAILED") {
+                        clearInterval(pollInterval);
+                        showStatus("jobStatus", "❌ Video generation failed. Please try again.", "error");
+                        setLoading("generateBtn", false, "🚀 Generate Avatar Video");
+                        document.getElementById("progressBar").style.display = "none";
+
+                    } else {
+                        // Still pending
+                        const mins = Math.floor(attempts * 5 / 60);
+                        const secs = (attempts * 5) % 60;
+                        showStatus("jobStatus", 
+                            `⏳ Processing... (${mins}:${secs.toString().padStart(2, '0')} elapsed)\n` +
+                            `📹 AI is generating your avatar video...`, 
+                            "info"
+                        );
+                    }
+
+                    // Timeout
+                    if (attempts >= maxAttempts) {
+                        clearInterval(pollInterval);
+                        showStatus("jobStatus", 
+                            "⏱️ Taking longer than expected. Job ID: " + jobId + 
+                            "\nCheck back in a few minutes.", 
+                            "warning"
+                        );
+                        setLoading("generateBtn", false, "🚀 Generate Avatar Video");
+                    }
+
+                } catch (err) {
+                    console.error("Poll error:", err);
+                    // Don't stop on transient errors
+                }
+            }, 5000);
+        }
+
+        // ===================================================================
+        // INIT
+        // ===================================================================
+        window.onload = () => {
+            console.log("Avatar MVP loaded");
+            console.log("API:", API_BASE);
+            console.log("User:", USER_ID);
+
+            if (API_BASE === "YOUR_API_URL_HERE") {
+                showStatus("jobStatus", 
+                    "⚠️ Configuration needed!\n\n" +
+                    "Edit index.html and replace YOUR_API_URL_HERE with your API URL from CDK deploy.", 
+                    "warning"
+                );
+            }
+        };
+    </script>
+</body>
+</html>

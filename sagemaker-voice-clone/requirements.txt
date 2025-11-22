@@ -1,0 +1,26 @@
+# =============================================================================
+# sagemaker-voice-clone/requirements.txt
+# =============================================================================
+
+# Core SageMaker inference
+sagemaker-inference>=1.7.0
+boto3>=1.28.0
+
+# Voice cloning dependencies (choose based on your model)
+# Option 1: Coqui XTTS
+# TTS>=0.22.0
+
+# Option 2: ElevenLabs API
+# requests>=2.31.0
+# elevenlabs>=0.2.0
+
+# Option 3: Add your custom model dependencies here
+
+# Audio processing
+numpy>=1.24.0
+scipy>=1.11.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+
+print("""
