@@ -130,18 +130,20 @@ class AvatarMvpStack(cdk.Stack):
         # ====================================================================
         # LAMBDA: upload_url
         # ====================================================================
+    
         upload_url_fn = lambda_python.PythonFunction(
             self,
             "UploadUrlFn",
             entry=os.path.join(os.path.dirname(__file__), "..", "lambda"),
             index="upload_url.py",
-            handler="handler",
+            handler="upload_url_handler",  # 👈 must match the function in upload_url.py
             runtime=_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             memory_size=256,
             environment=lambda_env,
         )
         upload_url_fn.add_to_role_policy(s3_policy)
+
 
         # ====================================================================
         # LAMBDA: create_job

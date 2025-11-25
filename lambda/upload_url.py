@@ -38,7 +38,9 @@ BUCKET_NAME = os.environ["BUCKET_NAME"]
 def upload_url_handler(event, context):
     """Generate presigned S3 upload URL."""
     try:
-        body = json.loads(event.get("body", "{}"))
+        logger.info("Received event: %s", json.dumps(event))
+        
+        body = json.loads(event.get("body", "{}") or "{}")
         
         user_id = body.get("userId", "anonymous")
         file_name = body.get("fileName")
