@@ -276,6 +276,10 @@ def upload_to_s3(data: bytes, key: str, content_type: str) -> None:
         raise
 
 
+    except ClientError as e:
+        logger.error(f"Nova Reel job start failed: {e}")
+        raise
+
 def start_nova_reel_job(
     avatar_key: str,
     duration_seconds: int,
@@ -287,7 +291,7 @@ def start_nova_reel_job(
     
     Args:
         avatar_key: S3 key of avatar image
-        duration_seconds: Video length
+        duration_seconds: Requested video length from client (we clamp to 6s)
         gesture_mode: "subtle" or "expressive"
         job_id: Job identifier for output prefix
         
@@ -304,29 +308,35 @@ def start_nova_reel_job(
         f"natural facial expressions with subtle smile, professional demeanor."
     )
     
-    # Construct model input
+    # Output location in your bucket
     image_s3_uri = f"s3://{BUCKET_NAME}/{avatar_key}"
     output_prefix = f"s3://{BUCKET_NAME}/renders/raw-video/{job_id}/"
     
-    
+    # ⚠️ Nova Reel TEXT_VIDEO currently only supports 6-second clips.
+    # If the caller asks for something else, log a warning and clamp to 6.
+    if duration_seconds != 6:
+        logger.warning(
+            f"Requested duration {duration_seconds}s not supported for Nova TEXT_VIDEO. "
+            "Using 6 seconds as required."
+        )
+    nova_duration = 6
+
+    # Nova Reel TEXT_VIDEO request format
     model_input = {
         "taskType": "TEXT_VIDEO",
         "textToVideoParams": {
-            # High-level description of the shot / presenter
             "text": prompt,
-            # You can later extend this with images[] if you want I2V
         },
         "videoGenerationConfig": {
-            "durationSeconds": duration_seconds,
-            "fps": DEFAULT_FRAME_RATE,
+            "durationSeconds": nova_duration,
+            "fps": DEFAULT_FRAME_RATE,  # 24
             "dimension": "1280x720",
-            # Optionally add "seed": 0 for reproducibility
+            "seed": 0,
         },
     }
 
-    
     logger.info(f"Nova Reel prompt: {prompt}")
-    logger.info(f"Video duration: {duration_seconds}s, output: {output_prefix}")
+    logger.info(f"Video duration: {nova_duration}s, output: {output_prefix}")
     
     try:
         response = bedrock.start_async_invoke(
