@@ -395,16 +395,30 @@
 
                 // Upload to S3
                 showStatus("avatarStatus", "📤 Uploading image...", "info");
+
                 const uploadRes = await fetch(uploadUrl, {
                     method: "PUT",
                     headers: { "Content-Type": file.type },
                     body: file
                 });
 
-                if (!uploadRes.ok) throw new Error("Upload failed");
+                // Try to read any error message/body from S3
+                let debugBody = "";
+                try {
+                    debugBody = await uploadRes.text();
+                } catch (e) {
+                    debugBody = "<no response body>";
+                }
+
+                console.log("S3 upload status:", uploadRes.status, debugBody);
+
+                if (!uploadRes.ok) {
+                    throw new Error(`Upload failed (status ${uploadRes.status})`);
+                }
 
                 avatarKey = objectKey;
                 showStatus("avatarStatus", `✅ Avatar uploaded: ${file.name}`, "success");
+
 
             } catch (err) {
                 console.error(err);
