@@ -2,6 +2,7 @@
 # lambda/get_job.py
 # =============================================================================
 
+"""
 Lambda function: get_job
 
 Query job status and retrieve signed video URL when complete.
