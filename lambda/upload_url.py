@@ -2,6 +2,8 @@
 # lambda/upload_url.py
 # =============================================================================
 
+"""
+
 Lambda function: upload_url
 
 Generate presigned S3 URLs for avatar images and voice samples.
