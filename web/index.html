@@ -393,11 +393,14 @@
                 if (!urlRes.ok) throw new Error("Failed to get upload URL");
                 const { uploadUrl, objectKey } = await urlRes.json();
 
+
                 // Upload to S3
                 showStatus("avatarStatus", "📤 Uploading image...", "info");
-
                 const uploadRes = await fetch(uploadUrl, {
                     method: "PUT",
+                    headers: {
+                        "Content-Type": file.type || "application/octet-stream"
+                    },
                     body: file
                 });
 
