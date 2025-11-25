@@ -59,26 +59,39 @@ def get_job_handler(event, context):
             return create_response(404, {"error": "Job not found"})
         
         # Extract status
-        status = item["status"]["S"]
+        raw_status = item.get("status", {}).get("S", "UNKNOWN")
+
+        # Map internal statuses to what the frontend expects
+        # check_nova_status sets status = "READY" when the raw Nova video is ready
+        if raw_status == "READY":
+            ui_status = "COMPLETED"
+        else:
+            ui_status = raw_status
+
         result = {
             "jobId": job_id,
-            "status": status,
+            "status": ui_status,
             "userId": item.get("userId", {}).get("S", "unknown"),
         }
-        
-        # If completed, generate signed URL for video
-        if status == "COMPLETED":
+
+        # If completed/ready, generate signed URL for video
+        if ui_status == "COMPLETED":
+            # Prefer final muxed video if present, fall back to raw nova video
             final_key = item.get("finalVideoKey", {}).get("S")
-            if final_key:
+            nova_key = item.get("novaVideoKey", {}).get("S")
+
+            video_key = final_key or nova_key
+            if video_key:
                 video_url = s3.generate_presigned_url(
                     "get_object",
-                    Params={"Bucket": BUCKET_NAME, "Key": final_key},
+                    Params={"Bucket": BUCKET_NAME, "Key": video_key},
                     ExpiresIn=3600,
                 )
                 result["videoUrl"] = video_url
-                logger.info(f"Generated video URL for job: {job_id}")
-        
+                logger.info(f"Generated video URL for job: {job_id} key={video_key}")
+
         return create_response(200, result)
+
         
     except ClientError as e:
         logger.error(f"AWS error: {e}")

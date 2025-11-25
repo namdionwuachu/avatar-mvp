@@ -176,7 +176,7 @@ class AvatarMvpStack(cdk.Stack):
             "GetJobFn",
             entry=os.path.join(os.path.dirname(__file__), "..", "lambda"),
             index="get_job.py",
-            handler="handler",
+            handler="get_job_handler",
             runtime=_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(10),
             memory_size=256,
