@@ -308,19 +308,22 @@ def start_nova_reel_job(
     image_s3_uri = f"s3://{BUCKET_NAME}/{avatar_key}"
     output_prefix = f"s3://{BUCKET_NAME}/renders/raw-video/{job_id}/"
     
+    
     model_input = {
-        "taskType": "SINGLE_SHOT",
-        "singleShotConfig": {
+        "taskType": "TEXT_VIDEO",
+        "textToVideoParams": {
+            # High-level description of the shot / presenter
             "text": prompt,
-            "durationSeconds": duration_seconds,
-            "frameRate": DEFAULT_FRAME_RATE,
-            "aspectRatio": DEFAULT_ASPECT_RATIO,
+            # You can later extend this with images[] if you want I2V
         },
-        "image": {
-            "format": "s3Uri",
-            "sources": [{"uri": image_s3_uri}],
+        "videoGenerationConfig": {
+            "durationSeconds": duration_seconds,
+            "fps": DEFAULT_FRAME_RATE,
+            "dimension": "1280x720",
+            # Optionally add "seed": 0 for reproducibility
         },
     }
+
     
     logger.info(f"Nova Reel prompt: {prompt}")
     logger.info(f"Video duration: {duration_seconds}s, output: {output_prefix}")
