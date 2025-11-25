@@ -136,7 +136,7 @@ class AvatarMvpStack(cdk.Stack):
             "UploadUrlFn",
             entry=os.path.join(os.path.dirname(__file__), "..", "lambda"),
             index="upload_url.py",
-            handler="upload_url_handler",  # 👈 must match the function in upload_url.py
+            handler="handler", 
             runtime=_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             memory_size=256,

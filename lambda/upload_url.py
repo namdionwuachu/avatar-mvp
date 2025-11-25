@@ -1,9 +1,4 @@
-# =============================================================================
-# lambda/upload_url.py
-# =============================================================================
-
 """
-
 Lambda function: upload_url
 
 Generate presigned S3 URLs for avatar images and voice samples.
@@ -35,11 +30,10 @@ s3 = boto3.client("s3")
 BUCKET_NAME = os.environ["BUCKET_NAME"]
 
 
-def upload_url_handler(event, context):
+def handler(event, context):
     """Generate presigned S3 upload URL."""
     try:
         logger.info("Received event: %s", json.dumps(event))
-        
         body = json.loads(event.get("body", "{}") or "{}")
         
         user_id = body.get("userId", "anonymous")
@@ -57,14 +51,33 @@ def upload_url_handler(event, context):
         else:
             return create_response(400, {"error": "fileType must be 'avatar' or 'voice'"})
         
-        # Generate presigned URL (1 hour expiration)
+        # Determine content type based on file extension
+        content_type = "application/octet-stream"
+        file_lower = file_name.lower()
+        
+        if file_lower.endswith('.png'):
+            content_type = "image/png"
+        elif file_lower.endswith(('.jpg', '.jpeg')):
+            content_type = "image/jpeg"
+        elif file_lower.endswith('.gif'):
+            content_type = "image/gif"
+        elif file_lower.endswith('.wav'):
+            content_type = "audio/wav"
+        elif file_lower.endswith('.mp3'):
+            content_type = "audio/mpeg"
+        
+        # Generate presigned URL with ContentType (CRITICAL for signature match)
         url = s3.generate_presigned_url(
             "put_object",
-            Params={"Bucket": BUCKET_NAME, "Key": key},
+            Params={
+                "Bucket": BUCKET_NAME,
+                "Key": key,
+                "ContentType": content_type,  # Required for S3 signature validation
+            },
             ExpiresIn=3600,
         )
         
-        logger.info(f"Generated presigned URL for: {key}")
+        logger.info(f"Generated presigned URL for: {key} with Content-Type: {content_type}")
         return create_response(200, {"uploadUrl": url, "objectKey": key})
         
     except ClientError as e:
@@ -86,4 +99,3 @@ def create_response(status_code, body):
         },
         "body": json.dumps(body),
     }
-
