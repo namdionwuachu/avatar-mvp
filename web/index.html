@@ -598,6 +598,9 @@
                     const progress = Math.min((attempts / maxAttempts) * 95, 95);
                     document.getElementById("progressFill").style.width = progress + "%";
 
+                    // ===========================
+                    // COMPLETED
+                    // ===========================
                     if (data.status === "COMPLETED") {
                         clearInterval(pollInterval);
                         document.getElementById("progressFill").style.width = "100%";
@@ -640,38 +643,24 @@
                         return; // finished successfully
                     }
 
-
-                        // Show & wire up the Download button
-                        const downloadSection = document.getElementById("downloadSection");
-                        const downloadBtn = document.getElementById("downloadBtn");
-
-                        if (downloadSection && downloadBtn && videoUrl) {
-                            downloadSection.style.display = "block";
-
-                            downloadBtn.onclick = () => {
-                                const a = document.createElement("a");
-                                a.href = videoUrl;
-                                a.download = "avatar-video.mp4"; // filename hint
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                            };
-                        }
-
-                        return; // finished successfully, stop processing this tick
-                    
-
-                    } else if (data.status === "FAILED") {
+                    // ===========================
+                    // FAILED
+                    // ===========================
+                    else if (data.status === "FAILED") {
                         clearInterval(pollInterval);
                         showStatus("jobStatus", "❌ Video generation failed. Please try again.", "error");
                         setLoading("generateBtn", false, "🚀 Generate Avatar Video");
                         document.getElementById("progressBar").style.display = "none";
+                    }
 
-                    } else {
-                        // Still pending
+                    // ===========================
+                    // STILL PROCESSING
+                    // ===========================
+                    else {
                         const mins = Math.floor(attempts * 5 / 60);
                         const secs = (attempts * 5) % 60;
-                        showStatus("jobStatus", 
+                        showStatus(
+                            "jobStatus", 
                             `⏳ Processing... (${mins}:${secs.toString().padStart(2, '0')} elapsed)\n` +
                             `📹 AI is generating your avatar video...`, 
                             "info"
@@ -681,7 +670,8 @@
                     // Timeout
                     if (attempts >= maxAttempts) {
                         clearInterval(pollInterval);
-                        showStatus("jobStatus", 
+                        showStatus(
+                            "jobStatus", 
                             "⏱️ Taking longer than expected. Job ID: " + jobId + 
                             "\nCheck back in a few minutes.", 
                             "warning"
@@ -695,6 +685,7 @@
                 }
             }, 5000);
         }
+
 
         // ===================================================================
         // INIT
