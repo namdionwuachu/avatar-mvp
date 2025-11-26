@@ -304,14 +304,17 @@ def load_avatar_image_source(avatar_key: str) -> Dict[str, Any]:
     """
     Load the avatar image from S3 and normalize it for Nova Reel:
 
-    - Force RGB (no transparency)
-    - Resize to 1280x720
-    - Encode as JPEG
+    - Force RGB (no transparency / alpha)
+    - Resize to exactly 1280x720
+    - Encode as PNG (RGB, no alpha)
     - Return as base64 ImageSource for Nova
     """
     try:
         obj = s3.get_object(Bucket=BUCKET_NAME, Key=avatar_key)
         data = obj["Body"].read()
+        logger.info(
+            f"Loaded avatar from S3 bucket={BUCKET_NAME}, key={avatar_key}, bytes={len(data)}"
+        )
     except ClientError as e:
         logger.error(f"Failed to read avatar from S3: {BUCKET_NAME}/{avatar_key}: {e}")
         raise
@@ -319,26 +322,38 @@ def load_avatar_image_source(avatar_key: str) -> Dict[str, Any]:
     try:
         # Open with Pillow
         img = Image.open(io.BytesIO(data))
+        logger.info(f"Original avatar image mode={img.mode}, size={img.size}")
 
-        # Remove alpha (transparency) by converting to RGB
-        img = img.convert("RGB")
+        # --- REMOVE ANY TRANSPARENCY SAFELY ---
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            logger.info("Image has transparency → flattening onto white background")
+            img = img.convert("RGBA")
+            bg = Image.new("RGB", img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[-1])
+            img = bg
+        else:
+            img = img.convert("RGB")
 
-        # Resize to exactly 1280x720 as required by Nova Reel
+        # Resize to required dimensions
         img = img.resize((1280, 720), Image.LANCZOS)
 
-        # Encode as JPEG into an in-memory buffer
+        # Encode as PNG into an in-memory buffer (RGB PNG has no transparency)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG")
+        img.save(buf, format="PNG")
         buf.seek(0)
-        jpeg_bytes = buf.read()
+        png_bytes = buf.read()
+
+        logger.info(
+            f"Normalized avatar image for Nova: mode={img.mode}, size={img.size}, out_bytes={len(png_bytes)}"
+        )
 
         # Base64 encode
-        b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
+        b64 = base64.b64encode(png_bytes).decode("utf-8")
 
         image_source: Dict[str, Any] = {
-            "format": "jpeg",
+            "format": "png",  # <- IMPORTANT: tell Nova this is PNG
             "source": {
-                "bytes": b64
+                "bytes": b64    # Nova expects base64-encoded bytes
             },
         }
         return image_source
