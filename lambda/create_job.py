@@ -20,6 +20,7 @@ import os
 import uuid
 import logging
 import time
+import base64
 from typing import Dict, Any
 import boto3
 from botocore.exceptions import ClientError, BotoCoreError
@@ -262,6 +263,8 @@ def generate_cloned_audio(text: str, user_id: str) -> bytes:
         raise RuntimeError(f"Voice cloning failed: {e}")
 
 
+
+
 def upload_to_s3(data: bytes, key: str, content_type: str) -> None:
     """Upload data to S3 bucket."""
     try:
@@ -276,9 +279,40 @@ def upload_to_s3(data: bytes, key: str, content_type: str) -> None:
         raise
 
 
+
+def load_avatar_image_source(avatar_key: str) -> Dict[str, Any]:
+    """
+    Load the avatar image from S3 and convert it to the ImageSource
+    structure expected by Nova Reel.
+
+    - Reads bytes from s3://BUCKET_NAME/<avatar_key>
+    - Base64 encodes them
+    - Infers format from file extension (png/jpeg)
+    """
+    try:
+        obj = s3.get_object(Bucket=BUCKET_NAME, Key=avatar_key)
+        data = obj["Body"].read()
     except ClientError as e:
-        logger.error(f"Nova Reel job start failed: {e}")
+        logger.error(f"Failed to read avatar from S3: {BUCKET_NAME}/{avatar_key}: {e}")
         raise
+
+    # Infer image format from file extension
+    ext = avatar_key.lower().rsplit(".", 1)[-1] if "." in avatar_key else "png"
+    if ext in ("jpg", "jpeg"):
+        img_format = "jpeg"
+    else:
+        img_format = "png"
+
+    b64 = base64.b64encode(data).decode("utf-8")
+
+    image_source: Dict[str, Any] = {
+        "format": img_format,
+        "source": {
+            # Nova Reel expects base64-encoded bytes here
+            "bytes": b64
+        },
+    }
+    return image_source
 
 def start_nova_reel_job(
     avatar_key: str,
@@ -308,35 +342,37 @@ def start_nova_reel_job(
         f"natural facial expressions with subtle smile, professional demeanor."
     )
     
-    # Output location in your bucket
-    image_s3_uri = f"s3://{BUCKET_NAME}/{avatar_key}"
+    # Construct model input for Nova Reel
+    # Nova Reel TEXT_VIDEO currently expects:
+    # - durationSeconds: fixed supported values (e.g., 6)
+    # - fps: 24
+    # - dimension: "1280x720"
+    #
+    # We clamp duration to 6s here to satisfy the model constraints.
     output_prefix = f"s3://{BUCKET_NAME}/renders/raw-video/{job_id}/"
-    
-    # ⚠️ Nova Reel TEXT_VIDEO currently only supports 6-second clips.
-    # If the caller asks for something else, log a warning and clamp to 6.
-    if duration_seconds != 6:
-        logger.warning(
-            f"Requested duration {duration_seconds}s not supported for Nova TEXT_VIDEO. "
-            "Using 6 seconds as required."
-        )
-    nova_duration = 6
 
-    # Nova Reel TEXT_VIDEO request format
+    # Load the uploaded avatar image as an ImageSource
+    avatar_image_source = load_avatar_image_source(avatar_key)
+
     model_input = {
         "taskType": "TEXT_VIDEO",
         "textToVideoParams": {
+            # High-level description of the shot / presenter
             "text": prompt,
+            # Use the uploaded avatar image as the visual conditioning
+            "images": [avatar_image_source],
         },
         "videoGenerationConfig": {
-            "durationSeconds": nova_duration,
-            "fps": DEFAULT_FRAME_RATE,  # 24
+            # Clamp duration to 6s for TEXT_VIDEO to avoid enum validation errors
+            "durationSeconds": 6,
+            "fps": 24,
             "dimension": "1280x720",
-            "seed": 0,
+            # Optionally: "seed": 0 for reproducibility
         },
     }
-
+    
     logger.info(f"Nova Reel prompt: {prompt}")
-    logger.info(f"Video duration: {nova_duration}s, output: {output_prefix}")
+    logger.info(f"Video duration: 6s, output: {output_prefix}")
     
     try:
         response = bedrock.start_async_invoke(
