@@ -215,8 +215,8 @@ def validate_request(body: Dict[str, Any]) -> None:
     if duration < 5 or duration > 120:
         raise ValueError("durationSeconds must be between 5 and 120")
 
-
-def generate_audio(script: str, voice_mode: str, user_id: str) -> bytes:
+    
+def generate_audio(script: str, voice_mode: str, user_id: str, polly_voice_id: str | None = None) -> bytes:
     """
     Generate audio via Polly or voice cloning.
     
@@ -224,18 +224,22 @@ def generate_audio(script: str, voice_mode: str, user_id: str) -> bytes:
         script: Text to synthesize
         voice_mode: "polly" or "cloned"
         user_id: User identifier for voice cloning
+        polly_voice_id: Polly VoiceId when using 'polly' mode
         
     Returns:
         Audio bytes (MP3 format)
     """
     if voice_mode == "polly":
-        return generate_polly_audio(script)
+        # Fallback to default if somehow None
+        voice_id = polly_voice_id or DEFAULT_POLLY_VOICE
+        return generate_polly_audio(script, voice_id)
     elif voice_mode == "cloned":
         if not VOICE_CLONE_ENDPOINT_NAME:
             raise ValueError("Voice cloning not configured: VOICE_CLONE_ENDPOINT_NAME missing")
         return generate_cloned_audio(script, user_id)
     else:
         raise ValueError(f"Unknown voice mode: {voice_mode}")
+
 
 
 def generate_polly_audio(text: str, voice_id: str) -> bytes:
