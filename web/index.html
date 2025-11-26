@@ -294,10 +294,21 @@
                 <option value="expressive">Expressive - Dynamic, engaging gestures</option>
             </select>
             <p class="help-text">✋ Subtle for professional settings, Expressive for engaging presentations</p>
-            
-            <div class="voice-info" style="margin-top: 1rem;">
-                🎙️ <strong>Voice:</strong> Amazon Polly Neural (Joanna) - Professional female voice
-            </div>
+
+            <label for="voiceId" style="margin-top: 1rem;">Choose Voice</label>
+            <select id="voiceId">
+                <option value="Joanna">Joanna (US Female)</option>
+                <option value="Matthew">Matthew (US Male)</option>
+                <option value="Amy">Amy (UK Female)</option>
+                <option value="Brian">Brian (UK Male)</option>
+                <option value="Ruth">Ruth (US Female)</option>
+                <option value="Stephen">Stephen (US Male)</option>
+                <option value="Ola">Ola (Nigerian English Male 🇳🇬)</option>
+            </select>
+            <p class="help-text">
+                🎙️ Voices powered by Amazon Polly Neural. Choose a style that matches your message.
+            </p>
+
         </div>
 
         <!-- Step 4: Generate -->
@@ -314,7 +325,6 @@
             <div id="jobStatus" class="status"></div>
         </div>
 
-       
 
         <!-- Video Player -->
         <div class="video-container" id="videoContainer">
@@ -526,6 +536,7 @@
             }
 
             const gestureMode = document.getElementById("gestureMode").value;
+            const voiceId = document.getElementById("voiceId").value;  // NEW
 
             try {
                 setLoading("generateBtn", true, "Creating job...");
@@ -542,6 +553,7 @@
                         avatarKey: avatarKey,
                         durationSeconds: 18,
                         voiceMode: "polly",      // Always Polly for now
+                        voiceId: voiceId,        // NEW: pass selected Polly voice
                         gestureMode: gestureMode
                     })
                 });
