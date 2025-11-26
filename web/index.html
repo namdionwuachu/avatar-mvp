@@ -598,7 +598,7 @@
                     const progress = Math.min((attempts / maxAttempts) * 95, 95);
                     document.getElementById("progressFill").style.width = progress + "%";
 
-                                        if (data.status === "COMPLETED") {
+                    if (data.status === "COMPLETED") {
                         clearInterval(pollInterval);
                         document.getElementById("progressFill").style.width = "100%";
                         
@@ -610,8 +610,7 @@
                         }, 1000);
 
                         // Use the video URL from the backend
-                        const videoUrl = data.videoUrl;      // <- existing field
-                        lastVideoUrl = videoUrl;
+                        const videoUrl = data.videoUrl;
 
                         // Show video
                         const videoContainer = document.getElementById("videoContainer");
@@ -620,6 +619,27 @@
                         videoContainer.style.display = "block";
                         videoContainer.scrollIntoView({ behavior: "smooth" });
                         videoPlayer.play();
+
+                        // Show & wire up the Download button
+                        const downloadSection = document.getElementById("downloadSection");
+                        const downloadBtn = document.getElementById("downloadBtn");
+
+                        if (downloadSection && downloadBtn && videoUrl) {
+                            downloadSection.style.display = "block";
+
+                            downloadBtn.onclick = () => {
+                                const a = document.createElement("a");
+                                a.href = videoUrl;
+                                a.download = "avatar-video.mp4"; // filename hint
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                            };
+                        }
+
+                        return; // finished successfully
+                    }
+
 
                         // Show & wire up the Download button
                         const downloadSection = document.getElementById("downloadSection");

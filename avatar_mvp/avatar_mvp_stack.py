@@ -271,11 +271,12 @@ class AvatarMvpStack(cdk.Stack):
                 )
                 .when(
                     sfn.Condition.string_equals("$.status", "READY"),
-                    mux_task.next(success_state),
+                    success_state,        # go directly to success
                 )
                 .otherwise(fail_state)
             )
         )
+
 
         # Create state machine
         state_machine = sfn.StateMachine(
