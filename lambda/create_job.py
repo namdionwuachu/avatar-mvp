@@ -23,6 +23,8 @@ import time
 import base64
 from typing import Dict, Any
 import boto3
+import io
+from PIL import Image
 from botocore.exceptions import ClientError, BotoCoreError
 
 # Configure logging
@@ -298,15 +300,14 @@ def upload_to_s3(data: bytes, key: str, content_type: str) -> None:
         raise
 
 
-
 def load_avatar_image_source(avatar_key: str) -> Dict[str, Any]:
     """
-    Load the avatar image from S3 and convert it to the ImageSource
-    structure expected by Nova Reel.
+    Load the avatar image from S3 and normalize it for Nova Reel:
 
-    - Reads bytes from s3://BUCKET_NAME/<avatar_key>
-    - Base64 encodes them
-    - Infers format from file extension (png/jpeg)
+    - Force RGB (no transparency)
+    - Resize to 1280x720
+    - Encode as JPEG
+    - Return as base64 ImageSource for Nova
     """
     try:
         obj = s3.get_object(Bucket=BUCKET_NAME, Key=avatar_key)
@@ -315,23 +316,37 @@ def load_avatar_image_source(avatar_key: str) -> Dict[str, Any]:
         logger.error(f"Failed to read avatar from S3: {BUCKET_NAME}/{avatar_key}: {e}")
         raise
 
-    # Infer image format from file extension
-    ext = avatar_key.lower().rsplit(".", 1)[-1] if "." in avatar_key else "png"
-    if ext in ("jpg", "jpeg"):
-        img_format = "jpeg"
-    else:
-        img_format = "png"
+    try:
+        # Open with Pillow
+        img = Image.open(io.BytesIO(data))
 
-    b64 = base64.b64encode(data).decode("utf-8")
+        # Remove alpha (transparency) by converting to RGB
+        img = img.convert("RGB")
 
-    image_source: Dict[str, Any] = {
-        "format": img_format,
-        "source": {
-            # Nova Reel expects base64-encoded bytes here
-            "bytes": b64
-        },
-    }
-    return image_source
+        # Resize to exactly 1280x720 as required by Nova Reel
+        img = img.resize((1280, 720), Image.LANCZOS)
+
+        # Encode as JPEG into an in-memory buffer
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        buf.seek(0)
+        jpeg_bytes = buf.read()
+
+        # Base64 encode
+        b64 = base64.b64encode(jpeg_bytes).decode("utf-8")
+
+        image_source: Dict[str, Any] = {
+            "format": "jpeg",
+            "source": {
+                "bytes": b64
+            },
+        }
+        return image_source
+
+    except Exception as e:
+        logger.error(f"Failed to process avatar image {BUCKET_NAME}/{avatar_key}: {e}")
+        raise
+
 
 def start_nova_reel_job(
     avatar_key: str,
