@@ -127,9 +127,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except ValueError as e:
         logger.error(f"Validation error: {e}")
         return create_response(400, {"error": "Invalid request", "details": str(e)})
+    
+    
     except (ClientError, BotoCoreError) as e:
-        logger.error(f"AWS service error: {e}")
-        return create_response(500, {"error": "AWS service error", "details": str(e)})
+        msg = str(e)
+        logger.error(f"AWS service error: {msg}")
+
+        # Special-case Nova Reel image size error so the UI can show a friendly message
+        if "dimensions in set [1280x720]" in msg:
+            return create_response(
+                400,
+                {
+                    "error": "INVALID_AVATAR_DIMENSIONS",
+                    "details": "Your avatar image must be exactly 1280x720 pixels for Nova Reel. Please crop/resize your image to 1280x720 and try again.",
+                },
+            )
+
+        return create_response(
+            500,
+            {"error": "AWS service error", "details": msg},
+        )
+
+    
     except Exception as e:
         logger.exception("Unexpected error")
         return create_response(500, {"error": "Internal server error", "details": str(e)})

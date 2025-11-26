@@ -471,12 +471,23 @@
                         gestureMode: gestureMode
                     })
                 });
-
+                
                 if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || "Job creation failed");
+                    let errText = "Job creation failed";
+                    try {
+                        const err = await res.json();
+                        if (err.details) {
+                            errText = err.details;
+                        } else if (err.error) {
+                            errText = err.error;
+                        }
+                    } catch (_) {
+                        // ignore JSON parse errors
+                    }
+                    throw new Error(errText);
                 }
 
+                
                 const { jobId } = await res.json();
                 showStatus("jobStatus", `✅ Job started!\n⏳ Generating video (4-6 min)...`, "info");
                 
