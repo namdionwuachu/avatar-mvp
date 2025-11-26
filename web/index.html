@@ -314,15 +314,23 @@
             <div id="jobStatus" class="status"></div>
         </div>
 
+       
+
         <!-- Video Player -->
         <div class="video-container" id="videoContainer">
             <video id="videoPlayer" controls></video>
+        </div>
+
+        <!-- Download Button -->
+        <div id="downloadSection" style="display:none; margin-top: 1rem; text-align: center;">
+            <button id="downloadBtn">⬇️ Download Video</button>
         </div>
 
         <div class="footer">
             Built with AWS Bedrock Nova Reel + Amazon Polly<br>
             <small>Avatar MVP v1.0</small>
         </div>
+
     </div>
 
     <script>
@@ -338,6 +346,7 @@
         const USER_ID = "user-" + Math.random().toString(36).substring(2, 9);
         let avatarKey = null;
         let pollInterval = null;
+        let lastVideoUrl = null;
 
         // ===================================================================
         // HELPERS
@@ -589,7 +598,7 @@
                     const progress = Math.min((attempts / maxAttempts) * 95, 95);
                     document.getElementById("progressFill").style.width = progress + "%";
 
-                    if (data.status === "COMPLETED") {
+                                        if (data.status === "COMPLETED") {
                         clearInterval(pollInterval);
                         document.getElementById("progressFill").style.width = "100%";
                         
@@ -600,13 +609,37 @@
                             document.getElementById("progressBar").style.display = "none";
                         }, 1000);
 
+                        // Use the video URL from the backend
+                        const videoUrl = data.videoUrl;      // <- existing field
+                        lastVideoUrl = videoUrl;
+
                         // Show video
                         const videoContainer = document.getElementById("videoContainer");
                         const videoPlayer = document.getElementById("videoPlayer");
-                        videoPlayer.src = data.videoUrl;
+                        videoPlayer.src = videoUrl;
                         videoContainer.style.display = "block";
                         videoContainer.scrollIntoView({ behavior: "smooth" });
                         videoPlayer.play();
+
+                        // Show & wire up the Download button
+                        const downloadSection = document.getElementById("downloadSection");
+                        const downloadBtn = document.getElementById("downloadBtn");
+
+                        if (downloadSection && downloadBtn && videoUrl) {
+                            downloadSection.style.display = "block";
+
+                            downloadBtn.onclick = () => {
+                                const a = document.createElement("a");
+                                a.href = videoUrl;
+                                a.download = "avatar-video.mp4"; // filename hint
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                            };
+                        }
+
+                        return; // finished successfully, stop processing this tick
+                    
 
                     } else if (data.status === "FAILED") {
                         clearInterval(pollInterval);

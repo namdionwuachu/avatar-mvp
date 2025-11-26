@@ -193,7 +193,7 @@ class AvatarMvpStack(cdk.Stack):
             "CheckNovaStatusFn",
             entry=os.path.join(os.path.dirname(__file__), "..", "lambda"),
             index="check_nova_status.py",
-            handler="handler",
+            handler="check_nova_status_handler",
             runtime=_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             memory_size=256,

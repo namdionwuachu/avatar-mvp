@@ -1,6 +1,7 @@
 # =============================================================================
 # lambda/check_nova_status.py
 # =============================================================================
+"""
 
 Lambda function: check_nova_status
 
@@ -12,11 +13,12 @@ Input:
     "jobId": "uuid"
 }
 
-Output:
+Output (when READY):
 {
     "jobId": "uuid",
-    "status": "PENDING" | "READY" | "FAILED",
-    "novaVideoKey": "renders/raw-video/..."  # if READY
+    "status": "READY",
+    "novaVideoKey": "renders/raw-video/...",
+    "downloadUrl": "https://presigned-s3-url..."
 }
 """
 
@@ -39,6 +41,7 @@ JOBS_TABLE_NAME = os.environ["JOBS_TABLE_NAME"]
 
 def check_nova_status_handler(event, context):
     """Check status of Bedrock Nova Reel async job."""
+    job_id = None
     try:
         job_id = event.get("jobId")
         if not job_id:
@@ -92,10 +95,32 @@ def check_nova_status_handler(event, context):
             logger.error("No S3 output URI in Bedrock response")
             return {"jobId": job_id, "status": "FAILED"}
         
-        # Find .mp4 file in S3 output prefix
-        nova_video_key = find_video_file(s3_output_uri)
+        # >>> CHANGED: get both bucket and key
+        video_bucket, nova_video_key = find_video_file(s3_output_uri)
+
+        if not nova_video_key:
+            # Video not visible yet – keep polling
+            logger.info(
+                f"Nova status COMPLETED but no .mp4 yet for job {job_id}; "
+                f"returning PENDING so Step Functions will retry."
+            )
+            return {"jobId": job_id, "status": "PENDING"}
         
-        # Update DynamoDB with video key
+        # >>> NEW: generate pre-signed URL for the video
+        url_ttl = int(os.environ.get("DOWNLOAD_URL_TTL", "3600"))  # seconds
+
+        try:
+            download_url = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": video_bucket, "Key": nova_video_key},
+                ExpiresIn=url_ttl,
+            )
+            logger.info(f"Generated presigned URL for {video_bucket}/{nova_video_key}")
+        except ClientError as e:
+            logger.error(f"Error generating presigned URL: {e}")
+            download_url = None  # don't break the function, just omit URL
+        
+        # Update DynamoDB with video key & READY status
         ddb.update_item(
             TableName=JOBS_TABLE_NAME,
             Key={"jobId": {"S": job_id}},
@@ -112,6 +137,7 @@ def check_nova_status_handler(event, context):
             "jobId": job_id,
             "status": "READY",
             "novaVideoKey": nova_video_key,
+            "downloadUrl": download_url,  # >>> NEW
         }
         
     except Exception as e:
@@ -120,7 +146,12 @@ def check_nova_status_handler(event, context):
 
 
 def find_video_file(s3_uri):
-    """Find .mp4 file in S3 output prefix."""
+    """Find .mp4 file in S3 output prefix.
+
+    Returns:
+        (bucket, key) if found,
+        (bucket, None) if not found yet.
+    """
     if not s3_uri or not s3_uri.startswith("s3://"):
         raise ValueError(f"Invalid S3 URI: {s3_uri}")
     
@@ -135,11 +166,16 @@ def find_video_file(s3_uri):
     response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
     contents = response.get("Contents", [])
     
+    if not contents:
+        logger.info(f"No objects yet under prefix {prefix} – Nova output not visible yet.")
+        return bucket, None
+
     # Find .mp4 file
     for obj in contents:
         key = obj["Key"]
         if key.lower().endswith(".mp4"):
             logger.info(f"Found video file: {key}")
-            return key
+            return bucket, key
     
-    raise RuntimeError(f"No .mp4 file found under {prefix}")
+    logger.info(f"No .mp4 file found under {prefix} yet.")
+    return bucket, None
