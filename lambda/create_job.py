@@ -51,6 +51,19 @@ DEFAULT_DURATION = 18
 DEFAULT_FRAME_RATE = 24
 DEFAULT_ASPECT_RATIO = "16:9"
 
+ALLOWED_POLLY_VOICES = {
+    "Joanna": "en-US female",
+    "Matthew": "en-US male",
+    "Amy": "en-GB female",
+    "Brian": "en-GB male",
+    "Ruth": "en-US female",
+    "Stephen": "en-US male",
+    "Ola": "en-NG male",
+}
+
+DEFAULT_POLLY_VOICE = "Joanna"
+
+
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -86,12 +99,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         voice_mode = body.get("voiceMode", "polly")
         gesture_mode = body.get("gestureMode", "subtle")
         
+        # NEW: Polly voice selection
+        requested_voice = body.get("voiceId", DEFAULT_POLLY_VOICE)
+
+        if voice_mode == "polly":
+            if requested_voice not in ALLOWED_POLLY_VOICES:
+                raise ValueError(
+                    f"Unsupported Polly voiceId '{requested_voice}'. "
+                    f"Allowed: {', '.join(ALLOWED_POLLY_VOICES.keys())}"
+                )
+            polly_voice_id = requested_voice
+        else:
+            # for cloned mode we ignore voiceId
+            polly_voice_id = DEFAULT_POLLY_VOICE
+        
+        
         # Generate unique job ID
         job_id = str(uuid.uuid4())
         
         # Step 1: Generate audio (Polly or cloned voice)
-        logger.info(f"Generating audio with mode: {voice_mode}")
-        audio_bytes = generate_audio(script, voice_mode, user_id)
+        logger.info(f"Generating audio with mode={voice_mode}, voiceId={polly_voice_id}")
+        audio_bytes = generate_audio(script, voice_mode, user_id, polly_voice_id)
+
         
         # Upload audio to S3
         audio_key = f"renders/audio/{job_id}.mp3"
@@ -209,7 +238,7 @@ def generate_audio(script: str, voice_mode: str, user_id: str) -> bytes:
         raise ValueError(f"Unknown voice mode: {voice_mode}")
 
 
-def generate_polly_audio(text: str) -> bytes:
+def generate_polly_audio(text: str, voice_id: str) -> bytes:
     """
     Generate audio using Amazon Polly Neural TTS.
     
@@ -224,12 +253,13 @@ def generate_polly_audio(text: str) -> bytes:
             Text=text,
             OutputFormat="mp3",
             Engine="neural",
-            VoiceId="Joanna",
+            VoiceId=voice_id,
             SampleRate="24000",
         )
         audio_bytes = response["AudioStream"].read()
-        logger.info(f"Generated Polly audio: {len(audio_bytes)} bytes")
+        logger.info(f"Generated Polly audio with {voice_id}: {len(audio_bytes)} bytes")
         return audio_bytes
+      
     except ClientError as e:
         logger.error(f"Polly synthesis failed: {e}")
         raise
