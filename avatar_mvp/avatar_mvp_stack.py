@@ -144,6 +144,46 @@ class AvatarMvpStack(cdk.Stack):
         )
         upload_url_fn.add_to_role_policy(s3_policy)
 
+        # ====================================================================
+        # LAMBDA LAYER: ffmpeg (built by CDK)
+        # ====================================================================
+        
+        ffmpeg_layer = _lambda.LayerVersion(
+            self,
+            "FfmpegLayer",
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
+            code=_lambda.Code.from_asset(
+                os.path.join(os.path.dirname(__file__), "..", "ffmpeg-layer"),
+                bundling=cdk.BundlingOptions(
+                    image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash",
+                        "-c",
+                        # Inside the bundling container:
+                        #  - download static ffmpeg
+                        #  - put it into /asset-output/bin/ffmpeg (Lambda layer layout)
+                        """
+                        set -e
+
+                        mkdir -p /asset-output/bin
+
+                        curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+                          -o /tmp/ffmpeg.tar.xz
+
+                        cd /tmp
+                        tar -xf ffmpeg.tar.xz
+                        FF_DIR=$(find . -maxdepth 1 -type d -name 'ffmpeg-*amd64-static' | head -n1)
+
+                        cp "$FF_DIR/ffmpeg" /asset-output/bin/ffmpeg
+                        chmod +x /asset-output/bin/ffmpeg
+                        """,
+                    ],
+                ),
+            ),
+            description="FFmpeg static binary layer for avatar muxing",
+        )
+
+
 
         # ====================================================================
         # LAMBDA: create_job
@@ -197,12 +237,19 @@ class AvatarMvpStack(cdk.Stack):
             runtime=_lambda.Runtime.PYTHON_3_12,
             timeout=Duration.seconds(30),
             memory_size=256,
-            environment=lambda_env,
+            environment={
+                **lambda_env,                 # bring in BUCKET_NAME, JOBS_TABLE_NAME, LOG_LEVEL
+                "FFMPEG_PATH": "/opt/bin/ffmpeg", # where ffmpeg lives in the layer
+                "FINAL_PREFIX": "renders/final/",  # where muxed videos will be stored
+                "DOWNLOAD_URL_TTL": "3600",       # presigned URL lifetime in seconds
+            },
+            layers=[ffmpeg_layer],  # attach the ffmpeg layer
         )
+
         check_status_fn.add_to_role_policy(bedrock_policy)
         check_status_fn.add_to_role_policy(s3_policy)
         check_status_fn.add_to_role_policy(ddb_policy)
-
+        
         # ====================================================================
         # LAMBDA: mux_audio_video (Docker)
         # ====================================================================
