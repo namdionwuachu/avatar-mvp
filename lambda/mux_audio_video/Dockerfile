@@ -18,5 +18,5 @@ RUN yum install -y tar xz curl \
 COPY mux_audio_video.py ${LAMBDA_TASK_ROOT}
 
 # Set handler
-CMD [ "mux_audio_video.handler" ]
+CMD [ "mux_audio_video.mux_handler" ]
 

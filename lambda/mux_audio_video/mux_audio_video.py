@@ -1,7 +1,7 @@
 # =============================================================================
 # lambda/mux_audio_video/mux_audio_video.py
 # =============================================================================
-
+"""
 Lambda function: mux_audio_video (Docker container)
 
 Merge audio and video using FFmpeg.
@@ -79,13 +79,13 @@ def mux_handler(event, context):
         # Run FFmpeg to merge audio and video
         logger.info("Running FFmpeg mux...")
         ffmpeg_command = [
-            "/usr/bin/ffmpeg",
-            "-y",  # Overwrite output
-            "-i", video_local,  # Video input
-            "-i", audio_local,  # Audio input
-            "-c:v", "copy",  # Copy video codec
-            "-c:a", "aac",  # Encode audio as AAC
-            "-shortest",  # Match shortest input duration
+            "ffmpeg",         # ← use PATH, no hard-coded /usr/bin
+            "-y",
+            "-i", video_local,
+            "-i", audio_local,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
             "-strict", "experimental",
             final_local,
         ]
@@ -94,7 +94,7 @@ def mux_handler(event, context):
         logger.info("FFmpeg mux completed")
         
         # Upload final video to S3
-        final_key = f"renders/final/{job_id}.mp4"
+        final_key = f"{FINAL_PREFIX}{job_id}.mp4"
         logger.info(f"Uploading final video: {final_key}")
         
         s3.upload_file(
