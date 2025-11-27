@@ -48,7 +48,7 @@ s3 = boto3.client("s3")
 
 BUCKET_NAME = os.environ["BUCKET_NAME"]
 JOBS_TABLE_NAME = os.environ["JOBS_TABLE_NAME"]
-FINAL_PREFIX = os.environ.get("FINAL_PREFIX", "renders/final/")
+
 
 
 def check_nova_status_handler(event, context):
